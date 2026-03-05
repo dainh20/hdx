@@ -1,0 +1,92 @@
+version: "3.9"
+
+services:
+
+  hdx-core:
+    image: ubuntu:22.04
+    container_name: hdx-core
+    hostname: hdx-core
+    working_dir: /hdx
+    command: >
+      bash -c "
+      apt update &&
+      apt install -y openjdk-17-jdk python3 python3-pip python3-venv curl vim postgresql-client &&
+      update-alternatives --install /usr/bin/python python /usr/bin/python3 1 &&
+      pip install fastapi uvicorn sqlalchemy psycopg2-binary passlib[bcrypt] python-jose &&
+      tail -f /dev/null
+      "
+    environment:
+      - JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+    volumes:
+      - ./:/hdx
+    networks:
+      - hdx_network
+    depends_on:
+      - hdx-postgres
+
+  hdx-postgres:
+    image: postgres:16.2
+    container_name: hdx-postgres
+    hostname: hdx-postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_DB: hdx
+    ports:
+      - "9999:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    networks:
+      - hdx_network
+
+
+  hdx-postgres2:
+    image: postgres:16.2
+    container_name: hdx-postgres2
+    hostname: hdx-postgres2
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_DB: hdx
+    ports:
+      - "9998:5432"
+    volumes:
+      - postgres_data2:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    networks:
+      - hdx_network
+
+  debezium-connect:
+    image: debezium/connect:2.5
+    container_name: debezium-connect
+    hostname: debezium-connect
+    ports:
+      - "8083:8083"
+    environment:
+      BOOTSTRAP_SERVERS: 10.0.9.178:9094,10.0.9.178:9194,10.0.9.178:9294
+      GROUP_ID: debezium-cluster
+
+      CONFIG_STORAGE_TOPIC: debezium-configs
+      OFFSET_STORAGE_TOPIC: debezium-offsets
+      STATUS_STORAGE_TOPIC: debezium-status
+
+      CONFIG_STORAGE_REPLICATION_FACTOR: 3
+      OFFSET_STORAGE_REPLICATION_FACTOR: 3
+      STATUS_STORAGE_REPLICATION_FACTOR: 3
+
+      CONNECT_SECURITY_PROTOCOL: SASL_PLAINTEXT
+      CONNECT_SASL_MECHANISM: PLAIN
+      CONNECT_SASL_JAAS_CONFIG: org.apache.kafka.common.security.plain.PlainLoginModule required username="tci-client" password="tci-client-secret";
+
+    networks:
+      - hdx_network
+
+
+volumes:
+  postgres_data:
+  postgres_data2:
+
+networks:
+  hdx_network:
+    driver: bridge

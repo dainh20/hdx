@@ -1,0 +1,6 @@
+CREATE SCHEMA core;
+CREATE SCHEMA account;
+CREATE SCHEMA market;
+CREATE SCHEMA trading;
+CREATE SCHEMA portfolio;
+CREATE SCHEMA accounting;
